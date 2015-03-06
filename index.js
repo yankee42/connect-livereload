@@ -6,20 +6,23 @@ module.exports = function livereload(opt) {
   var include = opt.include || [/.*/];
   var html = opt.html || _html;
   var rules = opt.rules || [{
-    match: /<\/body>(?![\s\S]*<\/body>)/i,
-    fn: prepend
-  }, {
-    match: /<\/html>(?![\s\S]*<\/html>)/i,
-    fn: prepend
-  }, {
-    match: /<\!DOCTYPE.+?>/i,
-    fn: append
-  }];
+      match: /<\/body>(?![\s\S]*<\/body>)/i,
+      fn: prepend
+    }, {
+      match: /<\/html>(?![\s\S]*<\/html>)/i,
+      fn: prepend
+    }, {
+      match: /<\!DOCTYPE.+?>/i,
+      fn: append
+    }];
   var disableCompression = opt.disableCompression || false;
   var hostname = opt.hostname || 'localhost';
   var port = opt.port || 35729;
-  var src = opt.src || '//' + hostname + ':' + port + '/livereload.js?snipver=1';
-  var snippet = '<script src="' + src + '" async defer></script>';
+
+  function snippet(host) {
+    var src = '//' + host + ':' + port + '/livereload.js?snipver=1';
+    return '<script src="' + src + '" async="" defer=""></script>';
+  }
 
   // helper functions
   var regex = (function() {
@@ -53,20 +56,6 @@ module.exports = function livereload(opt) {
     return (~body.lastIndexOf("/livereload.js"));
   }
 
-  function snap(body) {
-    var _body = body;
-    rules.some(function(rule) {
-      if (rule.match.test(body)) {
-        _body = body.replace(rule.match, function(w) {
-          return rule.fn(w, snippet);
-        });
-        return true;
-      }
-      return false;
-    });
-    return _body;
-  }
-
   function accept(req) {
     var ha = req.headers["accept"];
     if (!ha) return false;
@@ -74,7 +63,7 @@ module.exports = function livereload(opt) {
   }
 
   function check(str, arr) {
-   if (!str) return true;
+    if (!str) return true;
     return arr.some(function(item) {
       if ( (item.test && item.test(str) ) || ~str.indexOf(item)) return true;
       return false;
@@ -83,6 +72,20 @@ module.exports = function livereload(opt) {
 
   // middleware
   return function livereload(req, res, next) {
+    function snap(body) {
+      var _body = body;
+      rules.some(function(rule) {
+        if (rule.match.test(body)) {
+          _body = body.replace(rule.match, function(w) {
+            return rule.fn(w, snippet(req.headers.host.split(':')[0]));
+          });
+          return true;
+        }
+        return false;
+      });
+      return _body;
+    }
+
     if (res._livereload) return next();
     res._livereload = true;
 
